@@ -6,8 +6,16 @@ import { MarkdownPreview } from "./markdown-preview";
 import { Progress } from "~/components/ui/progress";
 import { Card, CardContent } from "~/components/ui/card";
 
+interface UploadResponse {
+  url: string;
+}
+
+interface ConversionResponse {
+  markdown: string;
+  error?: string;
+}
+
 export function UploadForm() {
-  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,11 +26,6 @@ export function UploadForm() {
       setIsConverting(true);
       setError(null);
 
-      // Simulate progress while converting
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => (prev >= 90 ? 90 : prev + 10));
-      }, 100);
-
       const response = await fetch("/api/convert", {
         method: "POST",
         headers: {
@@ -31,10 +34,14 @@ export function UploadForm() {
         body: JSON.stringify({ fileUrl }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as ConversionResponse;
 
       if (!response.ok) {
-        throw new Error(data.error || "Conversion failed");
+        throw new Error(data.error ?? "Conversion failed");
+      }
+
+      if (!data.markdown) {
+        throw new Error("No markdown content received");
       }
 
       setProgress(100);
@@ -52,13 +59,17 @@ export function UploadForm() {
     }
   };
 
-  const handleComplete = async (res: { url: string }[]) => {
+  const handleComplete = async (res: UploadResponse[]) => {
     if (res?.[0]?.url) {
       try {
         await handleConversion(res[0].url);
       } catch (error) {
-        console.error("Failed to convert file:", error);
+        setError(
+          error instanceof Error ? error.message : "Failed to convert file",
+        );
       }
+    } else {
+      setError("No file URL received from upload");
     }
   };
 
@@ -88,7 +99,7 @@ export function UploadForm() {
                 endpoint="officeUploader"
                 onClientUploadComplete={handleComplete}
                 onUploadError={handleError}
-                className="ut-allowed-content:text-sm ut-allowed-content:text-muted-foreground w-full border-2 border-dashed"
+                className="w-full border-2 border-dashed ut-allowed-content:text-sm ut-allowed-content:text-muted-foreground"
                 content={{
                   allowedContent:
                     "Files accepted: .pdf, .docx, .pptx, .xlsx (up to 16MB)",
