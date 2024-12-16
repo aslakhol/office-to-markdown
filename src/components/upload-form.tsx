@@ -2,14 +2,19 @@
 
 import { useState } from "react";
 import { UploadButton } from "../utils/uploadthing";
+import { MarkdownPreview } from "./markdown-preview";
 
 export function UploadForm() {
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
+  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleConversion = async (fileUrl: string) => {
     try {
       setIsConverting(true);
+      setError(null);
+
       const response = await fetch("/api/convert", {
         method: "POST",
         headers: {
@@ -24,9 +29,12 @@ export function UploadForm() {
         throw new Error(data.error || "Conversion failed");
       }
 
-      console.log("Conversion result:", data);
+      setMarkdown(data.markdown);
       return data.markdown;
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to convert file";
+      setError(message);
       console.error("Conversion error:", error);
       throw error;
     } finally {
@@ -41,8 +49,8 @@ export function UploadForm() {
           Office to <span className="text-[hsl(280,100%,70%)]">Markdown</span>
         </h1>
 
-        <div className="flex flex-col items-center gap-2">
-          <div className="mb-4 text-center">
+        <div className="flex w-full flex-col items-center gap-6">
+          <div className="text-center">
             <p>Upload your Office documents (DOCX, XLSX, PPTX) or PDF files</p>
             <p className="text-sm text-gray-400">Maximum file size: 16MB</p>
           </div>
@@ -57,8 +65,7 @@ export function UploadForm() {
 
                 if (file?.url) {
                   try {
-                    const markdown = await handleConversion(file.url);
-                    console.log("Markdown content:", markdown);
+                    await handleConversion(file.url);
                   } catch (error) {
                     console.error("Failed to convert file:", error);
                   }
@@ -67,23 +74,23 @@ export function UploadForm() {
             }}
             onUploadError={(error: Error) => {
               console.error("Upload error:", error);
+              setError(error.message);
             }}
           />
 
-          {uploadedFileUrl && (
-            <div className="mt-4 text-center">
-              <p className="text-green-400">File uploaded successfully!</p>
-              {isConverting ? (
-                <p className="text-sm text-gray-400">
-                  Converting to markdown...
-                </p>
-              ) : (
-                <p className="text-sm text-gray-400">
-                  Check console for conversion result
-                </p>
-              )}
+          {error && (
+            <div className="text-center text-red-400">
+              <p>Error: {error}</p>
             </div>
           )}
+
+          {isConverting && (
+            <div className="text-center">
+              <p className="text-gray-400">Converting to markdown...</p>
+            </div>
+          )}
+
+          {markdown && !isConverting && <MarkdownPreview markdown={markdown} />}
         </div>
       </div>
     </main>
