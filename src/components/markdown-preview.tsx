@@ -4,10 +4,18 @@ import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import * as Tabs from "@radix-ui/react-tabs";
 import { Copy, Check } from "lucide-react";
 import prettier from "prettier/standalone";
 import markdownParser from "prettier/parser-markdown";
+import { Button } from "~/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "~/components/ui/card";
 
 interface MarkdownPreviewProps {
   markdown: string;
@@ -45,59 +53,52 @@ export function MarkdownPreview({ markdown }: MarkdownPreviewProps) {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl overflow-hidden rounded-lg bg-white shadow-lg">
-      <Tabs.Root defaultValue="raw" className="w-full">
-        <div className="flex items-center justify-between border-b bg-gray-100 px-4 py-2">
-          <Tabs.List className="flex gap-2">
-            <Tabs.Trigger
-              value="raw"
-              className="rounded-md px-3 py-1 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              Markdown
-            </Tabs.Trigger>
-            <Tabs.Trigger
-              value="preview"
-              className="rounded-md px-3 py-1 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-            >
-              Preview
-            </Tabs.Trigger>
-          </Tabs.List>
-
-          <button
-            onClick={copyToClipboard}
-            className="flex items-center gap-2 px-3 py-1 text-sm text-gray-600 transition-colors hover:text-gray-900"
-          >
-            {copied ? (
-              <>
-                <Check className="h-4 w-4" />
-                <span>Copied!</span>
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                <span>Copy markdown</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        <Tabs.Content value="raw" className="p-4">
-          <SyntaxHighlighter
-            language="markdown"
-            style={vscDarkPlus}
-            className="!m-0 rounded-md !bg-gray-900"
-          >
-            {formattedMarkdown}
-          </SyntaxHighlighter>
-        </Tabs.Content>
-
-        <Tabs.Content
-          value="preview"
-          className="prose prose-sm dark:prose-invert max-w-none p-4"
+    <Card className="mx-auto w-full max-w-2xl">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle>Generated Markdown</CardTitle>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-[100px]"
+          onClick={copyToClipboard}
         >
-          <ReactMarkdown>{formattedMarkdown}</ReactMarkdown>
-        </Tabs.Content>
-      </Tabs.Root>
-    </div>
+          {copied ? (
+            <>
+              <Check className="mr-2 h-4 w-4" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy
+            </>
+          )}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="raw" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="raw">Markdown</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+          </TabsList>
+          <TabsContent value="raw">
+            <div className="relative">
+              <SyntaxHighlighter
+                language="markdown"
+                style={vscDarkPlus}
+                className="!m-0 rounded-md !bg-gray-900"
+              >
+                {formattedMarkdown}
+              </SyntaxHighlighter>
+            </div>
+          </TabsContent>
+          <TabsContent value="preview">
+            <div className="prose prose-sm max-w-none rounded-md border p-4 dark:prose-invert">
+              <ReactMarkdown>{formattedMarkdown}</ReactMarkdown>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
   );
 }
