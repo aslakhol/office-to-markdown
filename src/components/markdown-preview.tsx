@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -9,13 +9,7 @@ import prettier from "prettier/standalone";
 import markdownParser from "prettier/parser-markdown";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 
 interface MarkdownPreviewProps {
   markdown: string;
@@ -25,22 +19,9 @@ export function MarkdownPreview({ markdown }: MarkdownPreviewProps) {
   const [copied, setCopied] = useState(false);
   const [formattedMarkdown, setFormattedMarkdown] = useState(markdown);
 
-  useEffect(() => {
-    const formatMarkdown = async () => {
-      try {
-        const formatted = await prettier.format(markdown, {
-          parser: "markdown",
-          plugins: [markdownParser],
-        });
-        setFormattedMarkdown(formatted);
-      } catch (err) {
-        console.error("Failed to format markdown:", err);
-        setFormattedMarkdown(markdown); // Fallback to unformatted markdown
-      }
-    };
-
-    formatMarkdown();
-  }, [markdown]);
+  void formatMarkdown(markdown).then((formatted) => {
+    setFormattedMarkdown(formatted);
+  });
 
   const copyToClipboard = async () => {
     try {
@@ -102,3 +83,16 @@ export function MarkdownPreview({ markdown }: MarkdownPreviewProps) {
     </Card>
   );
 }
+
+const formatMarkdown = async (markdown: string) => {
+  try {
+    const formatted = await prettier.format(markdown, {
+      parser: "markdown",
+      plugins: [markdownParser],
+    });
+    return formatted;
+  } catch (err) {
+    console.error("Failed to format markdown:", err);
+    return markdown;
+  }
+};
