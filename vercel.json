@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pip install -r src/server/python/requirements.txt && npm run build",
+  "buildCommand": "pip install -r src/server/python/requirements.txt && pip install git+https://github.com/microsoft/Markitdown.git && npm run build",
   "installCommand": "npm install",
   "framework": "nextjs"
 }
