@@ -1,0 +1,5 @@
+{
+  "buildCommand": "pip install -r src/server/python/requirements.txt && npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}

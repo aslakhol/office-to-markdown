@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { writeFile, unlink } from "fs/promises";
 import { convertToMarkdown } from "~/server/converter";
+import path from "path";
+import os from "os";
 
 interface ConvertRequest {
   fileUrl: string;
 }
 
 export async function POST(req: Request) {
+  let tempFilePath: string | undefined;
+
   try {
     const data = (await req.json()) as ConvertRequest;
 
@@ -26,8 +30,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a temporary file path
-    const tempFilePath = `/tmp/${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    // Create a temporary file path using os.tmpdir()
+    tempFilePath = path.join(
+      os.tmpdir(),
+      `${Date.now()}-${Math.random().toString(36).substring(7)}`,
+    );
 
     // Save the file
     const buffer = await response.arrayBuffer();
@@ -35,9 +42,6 @@ export async function POST(req: Request) {
 
     // Convert the file
     const result = await convertToMarkdown(tempFilePath);
-
-    // Clean up the temporary file
-    await unlink(tempFilePath);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
@@ -50,5 +54,14 @@ export async function POST(req: Request) {
       { error: "Internal server error" },
       { status: 500 },
     );
+  } finally {
+    // Clean up the temporary file
+    if (tempFilePath) {
+      try {
+        await unlink(tempFilePath);
+      } catch (error) {
+        console.error("Failed to clean up temporary file:", error);
+      }
+    }
   }
 }
