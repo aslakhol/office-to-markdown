@@ -1,1 +1,7 @@
 Flask==3.0.3
+flask-cors==5.0.0
+python-docx>=0.8.11
+openpyxl>=3.1.2
+python-pptx>=0.6.21
+PyPDF2>=3.0.0
+git+https://github.com/microsoft/Markitdown.git

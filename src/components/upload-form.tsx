@@ -11,8 +11,9 @@ interface UploadResponse {
 }
 
 interface ConversionResponse {
-  markdown: string;
-  error?: string;
+  success: boolean;
+  markdown: string | null;
+  error: string | null;
 }
 
 export function UploadForm() {
@@ -26,22 +27,26 @@ export function UploadForm() {
       setIsConverting(true);
       setError(null);
 
-      const response = await fetch("/api/convert", {
+      // First fetch the file content
+      const fileResponse = await fetch(fileUrl);
+      if (!fileResponse.ok) {
+        throw new Error("Failed to fetch file content");
+      }
+      const fileBlob = await fileResponse.blob();
+
+      // Create form data with the file
+      const formData = new FormData();
+      formData.append("file", fileBlob);
+
+      const response = await fetch("/api/python/convert", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ fileUrl }),
+        body: formData,
       });
 
       const data = (await response.json()) as ConversionResponse;
 
-      if (!response.ok) {
+      if (!data.success || !data.markdown) {
         throw new Error(data.error ?? "Conversion failed");
-      }
-
-      if (!data.markdown) {
-        throw new Error("No markdown content received");
       }
 
       setProgress(100);
