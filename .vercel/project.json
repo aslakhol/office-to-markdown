@@ -1,0 +1,22 @@
+{
+  "buildCommand": null,
+  "devCommand": null,
+  "installCommand": null,
+  "framework": null,
+  "outputDirectory": null,
+  "public": false,
+  "rootDirectory": null,
+  "directoryListing": false,
+  "cleanUrls": true,
+  "regions": ["iad1"],
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next@3.1.0"
+    },
+    {
+      "src": "src/server/python/**/*.py",
+      "use": "@vercel/python@3.1.0"
+    }
+  ]
+}

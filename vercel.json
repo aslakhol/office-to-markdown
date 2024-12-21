@@ -3,10 +3,13 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "functions": {
-    "src/app/api/**/*": {
-      "runtime": "nodejs18.x",
+    "src/app/api/convert/**/*": {
+      "runtime": "@vercel/python@3.1.0",
       "memory": 1024,
       "maxDuration": 60
+    },
+    "src/app/api/**/*": {
+      "runtime": "@vercel/node@3.0.0"
     }
   }
 }
