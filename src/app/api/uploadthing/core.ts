@@ -21,13 +21,15 @@ export const ourFileRouter = {
     },
   })
     .middleware(async () => {
+      console.log("Upload middleware running");
       // This code runs on your server before upload
       return {}; // This will be available in onUploadComplete as `metadata`
     })
     .onUploadComplete(async ({ file }) => {
+      console.log("Upload complete for file:", file);
       // Return the file URL and any additional data you want to send to the client
       console.log("upload file", file);
-      return { url: file.url };
+      return { url: file.url, bar: "bar" };
     }),
 } satisfies FileRouter;
 
