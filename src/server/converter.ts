@@ -12,7 +12,6 @@ export async function convertToMarkdown(
 ): Promise<ConversionResult> {
   return new Promise((resolve) => {
     const projectRoot = process.cwd();
-    // Path to the Python script and virtual environment
     const scriptPath = path.join(
       projectRoot,
       "src",
@@ -25,36 +24,27 @@ export async function convertToMarkdown(
         ? path.join(projectRoot, ".venv", "Scripts", "python.exe")
         : path.join(projectRoot, ".venv", "bin", "python");
 
-    console.log("Converting file:", filePath);
-    console.log("Using Python path:", pythonPath);
-    console.log("Using script path:", scriptPath);
-
-    // Spawn Python process from virtual environment
     const pythonProcess = spawn(pythonPath, [scriptPath, filePath]);
 
     let outputData = "";
     let errorData = "";
 
-    // Collect stdout data
-    pythonProcess.stdout.on("data", (data) => {
-      const chunk = data.toString();
-      console.log("Python stdout:", chunk);
-      outputData += chunk;
-    });
+    if (pythonProcess.stdout) {
+      pythonProcess.stdout.setEncoding("utf-8");
+      pythonProcess.stdout.on("data", (chunk: string) => {
+        outputData += chunk;
+      });
+    }
 
-    // Collect stderr data
-    pythonProcess.stderr.on("data", (data) => {
-      const chunk = data.toString();
-      console.error("Python stderr:", chunk);
-      errorData += chunk;
-    });
+    if (pythonProcess.stderr) {
+      pythonProcess.stderr.setEncoding("utf-8");
+      pythonProcess.stderr.on("data", (chunk: string) => {
+        errorData += chunk;
+      });
+    }
 
-    // Handle process completion
-    pythonProcess.on("close", (code) => {
-      console.log("Python process exited with code:", code);
-
+    pythonProcess.on("close", (code: number | null) => {
       if (code !== 0) {
-        console.error("Python process failed:", errorData);
         resolve({
           success: false,
           markdown: null,
@@ -64,7 +54,6 @@ export async function convertToMarkdown(
       }
 
       try {
-        console.log("Raw Python output:", outputData);
         const result = JSON.parse(outputData) as ConversionResult;
         resolve(result);
       } catch (e) {
