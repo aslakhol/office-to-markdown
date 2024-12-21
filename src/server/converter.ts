@@ -19,11 +19,9 @@ export async function convertToMarkdown(
       "python",
       "converter.py",
     );
-    const pythonPath =
-      process.platform === "win32"
-        ? path.join(projectRoot, ".venv", "Scripts", "python.exe")
-        : path.join(projectRoot, ".venv", "bin", "python");
-
+    const pythonPath = process.env.VERCEL
+      ? "/var/lang/bin/python3"
+      : ".venv/bin/python";
     const pythonProcess = spawn(pythonPath, [scriptPath, filePath]);
 
     let outputData = "";
