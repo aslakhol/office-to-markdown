@@ -1,15 +1,5 @@
 {
-  "buildCommand": "python3 -m pip install -r src/server/python/requirements.txt && python3 -m pip install git+https://github.com/microsoft/Markitdown.git && npm run build",
+  "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "functions": {
-    "src/app/api/convert/**/*": {
-      "runtime": "@vercel/python@3.1.0",
-      "memory": 1024,
-      "maxDuration": 60
-    },
-    "src/app/api/**/*": {
-      "runtime": "@vercel/node@3.0.0"
-    }
-  }
+  "framework": "nextjs"
 }
