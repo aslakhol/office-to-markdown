@@ -44,12 +44,7 @@ Last updated: 2026-03-02
 
 - Usually `docx` or `xlsx` first, based on real traffic.
 
-2. Roll out behind a feature flag
-
-- Route selected formats to `pandoc.wasm` client-side.
-- Fallback to `markitdown` on client failure.
-
-3. Move formats incrementally
+2. Move formats incrementally
 
 - Migrate only after quality + performance checks pass.
 - Keep `markitdown` as server fallback for difficult/edge files.
