@@ -32,16 +32,19 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Build Next.js app
-        run: pnpm build
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
+      - name: Test
+        run: pnpm test
+
+      - name: Build Next.js app
+        run: pnpm build
 
       - name: Validate Python function scaffold
         run: python -m py_compile api/convert.py
