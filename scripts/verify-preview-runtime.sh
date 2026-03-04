@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <preview-url>"
-  echo "Example: $0 https://office-to-markdown-git-codex-issue-4-abc123-aslakhol.vercel.app"
+  echo "Example: $0 https://office-to-markdown-git-codex-issue-6-abc123-aslakhol.vercel.app"
   exit 1
 fi
 
@@ -45,7 +45,7 @@ echo "Checking payload boundary (no file bytes in request body) ..."
 boundary_status="$(curl -sS -o "$boundary_tmp" -w "%{http_code}" \
   -X POST "${preview_url}/api/convert" \
   -H "Content-Type: application/json" \
-  --data '{"fileKey":"uploads/example.docx","fileBase64":"ZmFrZQ=="}')"
+  --data '{"fileKey":"uploads/example.docx","originalFilename":"example.docx","sizeBytes":1234,"mimeType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","idempotencyKey":"preview-check-1","fileBase64":"ZmFrZQ=="}')"
 
 if [ "$boundary_status" != "400" ]; then
   echo "Boundary check failed: expected 400, got ${boundary_status}."
@@ -70,7 +70,7 @@ trap 'rm -f "$health_tmp" "$boundary_tmp" "$stub_tmp"' EXIT
 stub_status="$(curl -sS -o "$stub_tmp" -w "%{http_code}" \
   -X POST "${preview_url}/api/convert" \
   -H "Content-Type: application/json" \
-  --data '{"fileKey":"uploads/example.docx"}')"
+  --data '{"fileKey":"uploads/example.docx","originalFilename":"example.docx","sizeBytes":1234,"mimeType":"application/vnd.openxmlformats-officedocument.wordprocessingml.document","idempotencyKey":"preview-check-2"}')"
 
 if [ "$stub_status" != "501" ]; then
   echo "Stub check failed: expected 501, got ${stub_status}."
