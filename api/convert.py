@@ -13,6 +13,14 @@ from flask import Flask, Request, jsonify, request
 
 app = Flask(__name__)
 
+FORBIDDEN_BYTE_FIELDS = (
+    "fileBytes",
+    "fileBase64",
+    "fileData",
+    "fileContent",
+    "rawFile",
+)
+
 
 @dataclass(slots=True)
 class ApiError:
@@ -44,12 +52,24 @@ def _extract_payload(incoming_request: Request) -> dict[str, Any]:
     return payload
 
 
+def _validate_reference_only_payload(payload: dict[str, Any]) -> str | None:
+    forbidden_fields = [field for field in FORBIDDEN_BYTE_FIELDS if field in payload]
+    if forbidden_fields:
+        fields = ", ".join(forbidden_fields)
+        return f"Request payload must not include file bytes. Remove fields: {fields}"
+    return None
+
+
 @app.post("/")
 def convert_stub():
     try:
         payload = _extract_payload(request)
     except TypeError as exc:
         return _json_error("invalid_file", str(exc), HTTPStatus.BAD_REQUEST)
+
+    payload_error = _validate_reference_only_payload(payload)
+    if payload_error:
+        return _json_error("invalid_file", payload_error, HTTPStatus.BAD_REQUEST)
 
     file_key = payload.get("fileKey")
     if not isinstance(file_key, str) or not file_key.strip():

@@ -21,6 +21,17 @@ class ConvertEndpointTests(unittest.TestCase):
         self.assertEqual(response.json["errorCode"], "invalid_file")
         self.assertIn("fileKey", response.json["message"])
 
+    def test_payload_with_file_bytes_is_rejected(self) -> None:
+        response = self.client.post(
+            "/",
+            json={"fileKey": "uploads/example.docx", "fileBase64": "ZmFrZQ=="},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json["errorCode"], "invalid_file")
+        self.assertIn("must not include file bytes", response.json["message"])
+        self.assertIn("fileBase64", response.json["message"])
+
     def test_stub_returns_not_implemented_for_valid_payload(self) -> None:
         response = self.client.post("/", json={"fileKey": "uploads/example.docx"})
 
