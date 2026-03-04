@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "./scripts/run-python-tests.sh",
+    "quality": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "packageManager": "pnpm@8.15.6",
   "dependencies": {
