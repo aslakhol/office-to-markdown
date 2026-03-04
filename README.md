@@ -41,10 +41,15 @@ Bootstrap foundation for `officetomarkdown.com`.
    pnpm dev
    ```
 
-5. Validate build and lint:
+5. Run local quality gates:
 
    ```bash
-   pnpm lint
+   pnpm quality
+   ```
+
+6. Validate production build:
+
+   ```bash
    pnpm build
    python3 -m py_compile api/convert.py
    ```
@@ -60,3 +65,8 @@ Bootstrap foundation for `officetomarkdown.com`.
 
 - The `/api/convert` Python endpoint is a stub and intentionally returns `501` until conversion engine logic is implemented.
 - UploadThing integration and shared API contracts are planned in follow-up issues.
+
+## Contributing
+
+- Use `pnpm quality` before opening a PR.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and pull request workflow.
