@@ -17,6 +17,7 @@
 - Open a PR against `main` with a clear scope and validation notes.
 - Keep PRs small enough to review end-to-end.
 - Include issue links in the PR body (`Closes #<issue-number>` when done).
+- For runtime-boundary changes, include preview verification output from `./scripts/verify-preview-runtime.sh <preview-url>`.
 
 ## Required checks
 
