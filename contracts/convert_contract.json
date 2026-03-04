@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "request": {
+    "requiredFields": [
+      "fileKey",
+      "originalFilename",
+      "sizeBytes",
+      "mimeType",
+      "idempotencyKey"
+    ],
+    "prohibitedByteFields": [
+      "fileBytes",
+      "fileBase64",
+      "fileData",
+      "fileContent",
+      "rawFile"
+    ]
+  },
+  "response": {
+    "requiredFields": [
+      "markdown",
+      "inputFormat",
+      "detectedFormat",
+      "warnings",
+      "timings",
+      "errorCode"
+    ]
+  },
+  "errorCodes": [
+    "unsupported_format",
+    "missing_dependency",
+    "payload_too_large",
+    "conversion_failed",
+    "storage_read_failed",
+    "timeout",
+    "rate_limited",
+    "invalid_file"
+  ]
+}
