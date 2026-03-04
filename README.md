@@ -58,13 +58,39 @@ Bootstrap foundation for `officetomarkdown.com`.
 
 - `app/`: Next.js App Router scaffold.
 - `api/convert.py`: Python conversion endpoint stub.
+- `vercel.json`: Vercel function guardrails for Python runtime boundaries.
 - `.env.example`: environment variable template.
+- `scripts/verify-preview-runtime.sh`: preview smoke check for UI + Python stubs.
 - `research/`: planning and technical research notes.
 
 ## Notes
 
 - The `/api/convert` Python endpoint is a stub and intentionally returns `501` until conversion engine logic is implemented.
 - UploadThing integration and shared API contracts are planned in follow-up issues.
+
+## Runtime boundaries
+
+| Route | Runtime | Source | Boundary |
+| --- | --- | --- | --- |
+| `/` and non-API pages | Next.js (App Router) | `app/` | UI/SEO only |
+| `/api/convert` | Vercel Python Function | `api/convert.py` | Accept file reference payloads only (no raw file bytes) |
+
+- Vercel body limit guardrail: request/response payloads must stay under 4.5 MB.
+- `api/convert.py` rejects byte-like fields (`fileBytes`, `fileBase64`, `fileData`, `fileContent`, `rawFile`) to enforce reference-only conversion requests.
+- `vercel.json` pins the Python endpoint max duration to `30s`.
+
+## Preview verification
+
+Run the preview smoke check against the generated deployment URL:
+
+```bash
+./scripts/verify-preview-runtime.sh https://<preview-domain>
+```
+
+The script verifies:
+- UI route responds with the Next.js scaffold.
+- Python healthcheck responds from `/api/convert`.
+- Payloads with embedded file bytes are rejected.
 
 ## Contributing
 
