@@ -1,1 +1,6 @@
 flask==3.1.0
+markitdown[docx,pdf,pptx,xlsx]==0.1.5
+openpyxl==3.1.5
+python-docx==1.2.0
+python-pptx==1.0.2
+reportlab==4.4.10
