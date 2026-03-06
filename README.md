@@ -66,7 +66,10 @@ Bootstrap foundation for `officetomarkdown.com`.
 ## Notes
 
 - The `/api/convert` Python endpoint is a stub and intentionally returns `501` until conversion engine logic is implemented.
-- UploadThing integration and shared API contracts are planned in follow-up issues.
+- UploadThing integration is planned in a follow-up issue.
+- Shared conversion contracts live in `contracts/convert_contract.json` and are consumed by:
+  - `contracts/convert_contract.py` for Python runtime validation.
+  - `lib/contracts/convert.ts` for frontend/shared TypeScript types.
 
 ## Runtime boundaries
 
@@ -78,6 +81,33 @@ Bootstrap foundation for `officetomarkdown.com`.
 - Vercel body limit guardrail: request/response payloads must stay under 4.5 MB.
 - `api/convert.py` rejects byte-like fields (`fileBytes`, `fileBase64`, `fileData`, `fileContent`, `rawFile`) to enforce reference-only conversion requests.
 - `vercel.json` pins the Python endpoint max duration to `30s`.
+
+## Convert API contract
+
+POST `/api/convert` request fields:
+- `fileKey` (string)
+- `originalFilename` (string)
+- `sizeBytes` (non-negative integer)
+- `mimeType` (string)
+- `idempotencyKey` (string)
+
+POST `/api/convert` response fields:
+- `markdown` (string)
+- `inputFormat` (string)
+- `detectedFormat` (string)
+- `warnings` (string[])
+- `timings` (object with numeric values)
+- `errorCode` (`null` or one of the typed error codes)
+
+Typed `errorCode` categories:
+- `unsupported_format`
+- `missing_dependency`
+- `payload_too_large`
+- `conversion_failed`
+- `storage_read_failed`
+- `timeout`
+- `rate_limited`
+- `invalid_file`
 
 ## Preview verification
 

@@ -11,20 +11,19 @@ from typing import Any
 
 from flask import Flask, Request, jsonify, request
 
-app = Flask(__name__)
-
-FORBIDDEN_BYTE_FIELDS = (
-    "fileBytes",
-    "fileBase64",
-    "fileData",
-    "fileContent",
-    "rawFile",
+from contracts.convert_contract import (
+    REQUEST_PROHIBITED_BYTE_FIELDS,
+    REQUEST_REQUIRED_FIELDS,
+    ConvertErrorCode,
+    is_convert_error_code,
 )
+
+app = Flask(__name__)
 
 
 @dataclass(slots=True)
 class ApiError:
-    errorCode: str
+    errorCode: ConvertErrorCode
     message: str
 
 
@@ -35,10 +34,13 @@ class ConvertResponse:
     detectedFormat: str
     warnings: list[str]
     timings: dict[str, int]
-    errorCode: str | None
+    errorCode: ConvertErrorCode | None
 
 
-def _json_error(error_code: str, message: str, status: HTTPStatus):
+def _json_error(error_code: ConvertErrorCode, message: str, status: HTTPStatus):
+    if not is_convert_error_code(error_code):
+        raise ValueError("Unexpected error code")
+
     payload = asdict(ApiError(errorCode=error_code, message=message))
     return jsonify(payload), status.value
 
@@ -53,10 +55,44 @@ def _extract_payload(incoming_request: Request) -> dict[str, Any]:
 
 
 def _validate_reference_only_payload(payload: dict[str, Any]) -> str | None:
-    forbidden_fields = [field for field in FORBIDDEN_BYTE_FIELDS if field in payload]
+    forbidden_fields = [
+        field for field in REQUEST_PROHIBITED_BYTE_FIELDS if field in payload
+    ]
     if forbidden_fields:
         fields = ", ".join(forbidden_fields)
         return f"Request payload must not include file bytes. Remove fields: {fields}"
+    return None
+
+
+def _validate_contract_payload(payload: dict[str, Any]) -> str | None:
+    missing_fields = [field for field in REQUEST_REQUIRED_FIELDS if field not in payload]
+    if missing_fields:
+        return f"Missing required field(s): {', '.join(missing_fields)}"
+
+    unexpected_fields = [field for field in payload if field not in REQUEST_REQUIRED_FIELDS]
+    if unexpected_fields:
+        return (
+            "Unexpected field(s): "
+            + ", ".join(unexpected_fields)
+            + ". Request must match the convert contract."
+        )
+
+    string_fields = ("fileKey", "originalFilename", "mimeType", "idempotencyKey")
+    invalid_strings = [
+        field
+        for field in string_fields
+        if not isinstance(payload.get(field), str) or not payload[field].strip()
+    ]
+    if invalid_strings:
+        return (
+            "Field(s) must be non-empty strings: "
+            + ", ".join(invalid_strings)
+        )
+
+    size_bytes = payload.get("sizeBytes")
+    if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
+        return "Field sizeBytes must be a non-negative integer."
+
     return None
 
 
@@ -71,10 +107,10 @@ def convert_stub():
     if payload_error:
         return _json_error("invalid_file", payload_error, HTTPStatus.BAD_REQUEST)
 
-    file_key = payload.get("fileKey")
-    if not isinstance(file_key, str) or not file_key.strip():
+    contract_error = _validate_contract_payload(payload)
+    if contract_error:
         return _json_error(
-            "invalid_file", "Missing required field: fileKey", HTTPStatus.BAD_REQUEST
+            "invalid_file", contract_error, HTTPStatus.BAD_REQUEST
         )
 
     response = ConvertResponse(
