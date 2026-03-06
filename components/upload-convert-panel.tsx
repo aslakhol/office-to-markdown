@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { FormEvent, useMemo, useReducer, useState } from "react";
 
 import type {
   ConvertErrorCode,
@@ -8,7 +9,6 @@ import type {
   ConvertResponse,
 } from "@/lib/contracts/convert";
 import { isSupportedUploadFile, SUPPORTED_UPLOAD_FORMATS_LABEL } from "@/lib/upload/supported-formats";
-import { useUploadThing } from "@/lib/uploadthing";
 
 type UploadedReference = {
   fileKey: string;
@@ -22,6 +22,25 @@ type ConvertApiError = {
   message?: string;
 };
 
+export type UploadFileHandler = (file: File) => Promise<UploadedReference>;
+
+type PrototypePhase = "idle" | "uploading" | "converting" | "succeeded" | "failed";
+
+type PrototypeState = {
+  convertResponse: ConvertResponse | null;
+  errorMessage: string | null;
+  phase: PrototypePhase;
+  selectedFile: File | null;
+  uploadedReference: UploadedReference | null;
+};
+
+type PrototypeAction =
+  | { type: "file-selected"; file: File | null }
+  | { type: "upload-started" }
+  | { type: "upload-succeeded"; reference: UploadedReference }
+  | { type: "convert-succeeded"; response: ConvertResponse }
+  | { type: "request-failed"; message: string };
+
 const ACCEPTED_FILE_TYPES = [
   ".docx",
   ".pptx",
@@ -34,9 +53,80 @@ const ACCEPTED_FILE_TYPES = [
 ].join(",");
 
 const EMPTY_MARKDOWN_MESSAGE = "Conversion API responded with empty markdown (expected while stub is active).";
+const MOCK_UPLOAD_DRIVER = "mock";
+const UploadConvertPanelWithUploadThing = dynamic(
+  () =>
+    import("./upload-convert-panel-uploadthing").then((module) => ({
+      default: module.UploadConvertPanelWithUploadThing,
+    })),
+  { ssr: false },
+);
+
+const CONVERT_ERROR_MESSAGES: Record<ConvertErrorCode, string> = {
+  unsupported_format: "This prototype only supports DOCX, PPTX, XLSX, and PDF files.",
+  missing_dependency: "The converter is missing a required server dependency.",
+  payload_too_large: "This file is too large for the current prototype limit.",
+  conversion_failed: "The converter could not extract markdown from this file.",
+  storage_read_failed: "The uploaded file could not be read back from storage.",
+  timeout: "The conversion took too long and timed out.",
+  rate_limited: "Too many conversion requests are in flight. Try again shortly.",
+  invalid_file: "The uploaded file metadata or request payload was invalid.",
+};
+
+const initialState: PrototypeState = {
+  convertResponse: null,
+  errorMessage: null,
+  phase: "idle",
+  selectedFile: null,
+  uploadedReference: null,
+};
 
 function makeIdempotencyKey(): string {
   return globalThis.crypto?.randomUUID?.() ?? `upload-${Date.now()}`;
+}
+
+function prototypeReducer(state: PrototypeState, action: PrototypeAction): PrototypeState {
+  switch (action.type) {
+    case "file-selected":
+      return {
+        convertResponse: null,
+        errorMessage: null,
+        phase: "idle",
+        selectedFile: action.file,
+        uploadedReference: null,
+      };
+    case "upload-started":
+      return {
+        ...state,
+        convertResponse: null,
+        errorMessage: null,
+        phase: "uploading",
+        uploadedReference: null,
+      };
+    case "upload-succeeded":
+      return {
+        ...state,
+        errorMessage: null,
+        phase: "converting",
+        uploadedReference: action.reference,
+      };
+    case "convert-succeeded":
+      return {
+        ...state,
+        convertResponse: action.response,
+        errorMessage: null,
+        phase: "succeeded",
+      };
+    case "request-failed":
+      return {
+        ...state,
+        convertResponse: null,
+        errorMessage: action.message,
+        phase: "failed",
+      };
+    default:
+      return state;
+  }
 }
 
 function buildPrototypeMarkdown(
@@ -65,90 +155,93 @@ function buildPrototypeMarkdown(
   ].join("\n");
 }
 
-export function UploadConvertPanel() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [convertError, setConvertError] = useState<string | null>(null);
-  const [uploadedReference, setUploadedReference] = useState<UploadedReference | null>(null);
-  const [convertResponse, setConvertResponse] = useState<ConvertResponse | null>(null);
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const [isConverting, setIsConverting] = useState(false);
+function getUserFacingConvertError(
+  payload: ConvertApiError | ConvertResponse | null,
+  status: number,
+): string {
+  if (payload && typeof payload === "object" && "errorCode" in payload && payload.errorCode) {
+    return CONVERT_ERROR_MESSAGES[payload.errorCode] ?? `Conversion failed with status ${status}.`;
+  }
 
-  const { isUploading, startUpload } = useUploadThing("officeDocument", {
-    onUploadError: (error) => {
-      setUploadError(error.message || "Upload failed.");
-    },
+  if (payload && typeof payload === "object" && "message" in payload && payload.message) {
+    return payload.message;
+  }
+
+  return `Conversion failed with status ${status}.`;
+}
+
+export function UploadConvertPanel() {
+  if (process.env.NEXT_PUBLIC_PROTOTYPE_UPLOAD_DRIVER === MOCK_UPLOAD_DRIVER) {
+    return <UploadConvertPanelMock />;
+  }
+
+  return <UploadConvertPanelWithUploadThing />;
+}
+
+function UploadConvertPanelMock() {
+  const uploadFile: UploadFileHandler = async (file) => ({
+    fileKey: `mock-${file.name.replace(/\s+/g, "-").toLowerCase()}`,
+    mimeType: file.type || "application/octet-stream",
+    originalFilename: file.name,
+    sizeBytes: file.size,
   });
 
-  const isSubmitting = isUploading || isConverting;
+  return <UploadConvertPanelBody uploadFile={uploadFile} />;
+}
+
+export function UploadConvertPanelBody({ uploadFile }: { uploadFile: UploadFileHandler }) {
+  const [state, dispatch] = useReducer(prototypeReducer, initialState);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+
+  const isSubmitting = state.phase === "uploading" || state.phase === "converting";
   const buttonLabel = useMemo(() => {
-    if (isUploading) {
+    if (state.phase === "uploading") {
       return "Uploading...";
     }
-    if (isConverting) {
+    if (state.phase === "converting") {
       return "Converting...";
     }
     return "Upload and send reference to convert API";
-  }, [isConverting, isUploading]);
+  }, [state.phase]);
 
   const renderedMarkdown = useMemo(() => {
-    if (!uploadedReference) {
+    if (!state.uploadedReference) {
       return "";
     }
 
-    return buildPrototypeMarkdown(uploadedReference, convertResponse);
-  }, [convertResponse, uploadedReference]);
+    return buildPrototypeMarkdown(state.uploadedReference, state.convertResponse);
+  }, [state.convertResponse, state.uploadedReference]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    setUploadError(null);
-    setConvertError(null);
-    setUploadedReference(null);
-    setConvertResponse(null);
     setCopyStatus(null);
 
-    if (!selectedFile) {
-      setUploadError("Select a file before submitting.");
+    if (!state.selectedFile) {
+      dispatch({ type: "request-failed", message: "Select a file before submitting." });
       return;
     }
 
-    if (!isSupportedUploadFile(selectedFile.name, selectedFile.type)) {
-      setUploadError(`Unsupported file format. Supported formats: ${SUPPORTED_UPLOAD_FORMATS_LABEL}.`);
+    if (!isSupportedUploadFile(state.selectedFile.name, state.selectedFile.type)) {
+      dispatch({
+        type: "request-failed",
+        message: `Unsupported file format. Supported formats: ${SUPPORTED_UPLOAD_FORMATS_LABEL}.`,
+      });
       return;
     }
 
-    const uploadResult = await startUpload([selectedFile]);
-    if (!uploadResult || uploadResult.length === 0) {
-      setUploadError((currentMessage) => currentMessage ?? "Upload did not return a file reference.");
-      return;
-    }
-
-    const uploadedFile = uploadResult[0];
-    const reference = uploadedFile.serverData;
-    if (!reference) {
-      setUploadError("Upload completed without server reference metadata.");
-      return;
-    }
-
-    const uploadedFileReference: UploadedReference = {
-      fileKey: reference.fileKey,
-      mimeType: reference.mimeType,
-      originalFilename: reference.originalFilename,
-      sizeBytes: reference.sizeBytes,
-    };
-    setUploadedReference(uploadedFileReference);
-
-    const convertPayload: ConvertRequest = {
-      fileKey: uploadedFileReference.fileKey,
-      idempotencyKey: makeIdempotencyKey(),
-      mimeType: uploadedFileReference.mimeType,
-      originalFilename: uploadedFileReference.originalFilename,
-      sizeBytes: uploadedFileReference.sizeBytes,
-    };
-
-    setIsConverting(true);
+    dispatch({ type: "upload-started" });
     try {
+      const uploadedReference = await uploadFile(state.selectedFile);
+      dispatch({ type: "upload-succeeded", reference: uploadedReference });
+
+      const convertPayload: ConvertRequest = {
+        fileKey: uploadedReference.fileKey,
+        idempotencyKey: makeIdempotencyKey(),
+        mimeType: uploadedReference.mimeType,
+        originalFilename: uploadedReference.originalFilename,
+        sizeBytes: uploadedReference.sizeBytes,
+      };
+
       const response = await fetch("/api/convert", {
         body: JSON.stringify(convertPayload),
         headers: { "Content-Type": "application/json" },
@@ -158,29 +251,29 @@ export function UploadConvertPanel() {
       const payload = (await response.json().catch(() => null)) as ConvertResponse | ConvertApiError | null;
       if (!response.ok) {
         if (response.status === 501 && payload && typeof payload === "object" && "markdown" in payload) {
-          setConvertResponse(payload as ConvertResponse);
+          dispatch({ type: "convert-succeeded", response: payload as ConvertResponse });
           return;
         }
 
-        const message =
-          payload && typeof payload === "object" && "message" in payload
-            ? payload.message
-            : `Conversion failed with status ${response.status}.`;
-        setConvertError(message || `Conversion failed with status ${response.status}.`);
+        dispatch({
+          type: "request-failed",
+          message: getUserFacingConvertError(payload, response.status),
+        });
         return;
       }
 
       if (!payload || typeof payload !== "object" || !("markdown" in payload)) {
-        setConvertError("Conversion response did not match the expected contract.");
+        dispatch({
+          type: "request-failed",
+          message: "Conversion response did not match the expected contract.",
+        });
         return;
       }
 
-      setConvertResponse(payload as ConvertResponse);
+      dispatch({ type: "convert-succeeded", response: payload as ConvertResponse });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected conversion failure.";
-      setConvertError(message);
-    } finally {
-      setIsConverting(false);
+      dispatch({ type: "request-failed", message });
     }
   }
 
@@ -198,12 +291,12 @@ export function UploadConvertPanel() {
   }
 
   function handleDownloadMarkdown() {
-    if (!renderedMarkdown || !uploadedReference) {
+    if (!renderedMarkdown || !state.uploadedReference) {
       return;
     }
 
     const blob = new Blob([renderedMarkdown], { type: "text/markdown;charset=utf-8" });
-    const fileBaseName = uploadedReference.originalFilename.replace(/\.[^.]+$/, "") || "conversion";
+    const fileBaseName = state.uploadedReference.originalFilename.replace(/\.[^.]+$/, "") || "conversion";
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -230,42 +323,34 @@ export function UploadConvertPanel() {
             name="office-file"
             onChange={(event) => {
               const file = event.currentTarget.files?.[0] ?? null;
-              setSelectedFile(file);
-              setUploadError(null);
-              setConvertError(null);
+              dispatch({ type: "file-selected", file });
               setCopyStatus(null);
             }}
             type="file"
           />
-          <button disabled={isSubmitting || !selectedFile} type="submit">
+          <button disabled={isSubmitting || !state.selectedFile} type="submit">
             {buttonLabel}
           </button>
         </form>
 
-        {uploadError ? (
+        {state.errorMessage ? (
           <p className="error-text" role="alert">
-            Upload error: {uploadError}
+            Prototype error: {state.errorMessage}
           </p>
         ) : null}
 
-        {convertError ? (
-          <p className="error-text" role="alert">
-            Convert error: {convertError}
-          </p>
-        ) : null}
-
-        {uploadedReference ? (
+        {state.uploadedReference ? (
           <div className="result-block">
             <h3>Uploaded reference</h3>
             <dl>
               <dt>fileKey</dt>
-              <dd>{uploadedReference.fileKey}</dd>
+              <dd>{state.uploadedReference.fileKey}</dd>
               <dt>originalFilename</dt>
-              <dd>{uploadedReference.originalFilename}</dd>
+              <dd>{state.uploadedReference.originalFilename}</dd>
               <dt>mimeType</dt>
-              <dd>{uploadedReference.mimeType}</dd>
+              <dd>{state.uploadedReference.mimeType}</dd>
               <dt>sizeBytes</dt>
-              <dd>{uploadedReference.sizeBytes}</dd>
+              <dd>{state.uploadedReference.sizeBytes}</dd>
             </dl>
           </div>
         ) : null}
@@ -276,7 +361,7 @@ export function UploadConvertPanel() {
           <div>
             <h2>Markdown preview</h2>
             <p className="helper-text helper-text-inverse">
-              {convertResponse?.markdown ? "Live response from convert API." : EMPTY_MARKDOWN_MESSAGE}
+              {state.convertResponse?.markdown ? "Live response from convert API." : EMPTY_MARKDOWN_MESSAGE}
             </p>
           </div>
           <div className="action-row">
@@ -294,12 +379,27 @@ export function UploadConvertPanel() {
         </div>
 
         {copyStatus ? <p className="status-text">{copyStatus}</p> : null}
+        {!copyStatus && state.phase === "uploading" ? <p className="status-text">Uploading reference...</p> : null}
+        {!copyStatus && state.phase === "converting" ? <p className="status-text">Waiting for markdown...</p> : null}
 
-        {convertResponse ? (
+        {state.convertResponse ? (
           <div className="result-meta">
-            <p>detectedFormat: {convertResponse.detectedFormat}</p>
-            <p>inputFormat: {convertResponse.inputFormat}</p>
-            <p>warnings: {convertResponse.warnings.join(", ") || "none"}</p>
+            <p>detectedFormat: {state.convertResponse.detectedFormat}</p>
+            <p>inputFormat: {state.convertResponse.inputFormat}</p>
+            <p>
+              timings: download {state.convertResponse.timings.downloadMs ?? 0}ms / convert{" "}
+              {state.convertResponse.timings.convertMs ?? 0}ms / total {state.convertResponse.timings.totalMs ?? 0}ms
+            </p>
+            <p>warnings:</p>
+            {state.convertResponse.warnings.length > 0 ? (
+              <ul className="warning-list">
+                {state.convertResponse.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            ) : (
+              <p>none</p>
+            )}
           </div>
         ) : null}
       </div>
