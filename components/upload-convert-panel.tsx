@@ -84,7 +84,7 @@ export function UploadConvertPanel() {
 
     const uploadResult = await startUpload([selectedFile]);
     if (!uploadResult || uploadResult.length === 0) {
-      setUploadError("Upload did not return a file reference.");
+      setUploadError((currentMessage) => currentMessage ?? "Upload did not return a file reference.");
       return;
     }
 
