@@ -1,25 +1,20 @@
+import json
 import unittest
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from api.convert import app
 from contracts.convert_contract import CONVERT_ERROR_CODES, RESPONSE_REQUIRED_FIELDS
-from tests.fixture_factory import build_sample_fixtures
 
 
 class ConvertEndpointTests(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls.fixture_dir = TemporaryDirectory()
-        build_sample_fixtures(Path(cls.fixture_dir.name))
-
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.fixture_dir.cleanup()
+    fixture_root = Path(__file__).resolve().parent / "fixtures" / "smoke"
+    expected_markdown = json.loads(
+        (fixture_root / "expected-markdown.json").read_text(encoding="utf-8")
+    )
 
     def setUp(self) -> None:
-        app.config["LOCAL_FIXTURE_ROOT"] = self.fixture_dir.name
+        app.config["LOCAL_FIXTURE_ROOT"] = str(self.fixture_root)
         self.client = app.test_client()
         self.valid_request = {
             "fileKey": "fixture://sample.docx",
@@ -86,33 +81,29 @@ class ConvertEndpointTests(unittest.TestCase):
                 "fixture://sample.docx",
                 "sample.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                "Sample DOCX",
                 "docx",
             ),
             (
                 "fixture://sample.pptx",
                 "sample.pptx",
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                "Sample PPTX",
                 "pptx",
             ),
             (
                 "fixture://sample.xlsx",
                 "sample.xlsx",
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "Alice",
                 "xlsx",
             ),
             (
                 "fixture://sample.pdf",
                 "sample.pdf",
                 "application/pdf",
-                "Sample PDF",
                 "pdf",
             ),
         ]
 
-        for file_key, original_filename, mime_type, expected_text, expected_format in cases:
+        for file_key, original_filename, mime_type, expected_format in cases:
             with self.subTest(file_key=file_key):
                 response = self.client.post(
                     "/",
@@ -130,7 +121,10 @@ class ConvertEndpointTests(unittest.TestCase):
                 self.assertEqual(response.json["errorCode"], None)
                 self.assertEqual(response.json["inputFormat"], expected_format)
                 self.assertEqual(response.json["detectedFormat"], expected_format)
-                self.assertIn(expected_text, response.json["markdown"])
+                self.assertEqual(
+                    response.json["markdown"],
+                    self.expected_markdown[original_filename],
+                )
                 self.assertIn("downloadMs", response.json["timings"])
                 self.assertIn("convertMs", response.json["timings"])
                 self.assertIn("totalMs", response.json["timings"])

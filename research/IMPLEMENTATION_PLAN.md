@@ -26,6 +26,10 @@ Last updated: 2026-03-02
 - Track requested format, success/failure, latency, and file size.
 - Use this data to choose future migration targets.
 
+### Prototype Gate
+
+- Product-shell work does not start until the committed DOCX/PPTX/XLSX/PDF smoke corpus and negative fixture pass in both `pnpm test` and `pnpm test:browser`.
+
 ## Phase 2: Prepare for Multi-Engine Routing
 
 1. Introduce a converter router

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "generate:smoke-fixtures": "if [ ! -d .venv ]; then python3 -m venv .venv; fi && . .venv/bin/activate && python -m pip install --quiet -r requirements.txt && python scripts/generate_smoke_fixtures.py",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:browser": "playwright test",

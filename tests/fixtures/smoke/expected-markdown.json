@@ -1,0 +1,6 @@
+{
+  "sample.docx": "# Sample DOCX\n\nHello from docx fixture.",
+  "sample.pptx": "<!-- Slide number: 1 -->\n# Sample PPTX\nBullet one\nBullet two",
+  "sample.xlsx": "## Sheet1\n| Name | Score |\n| --- | --- |\n| Alice | 42 |",
+  "sample.pdf": "Sample PDF\n\nHello from pdf fixture."
+}
