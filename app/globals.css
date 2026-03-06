@@ -234,6 +234,15 @@ button,
   margin: 0.2rem 0;
 }
 
+.warning-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.warning-list li {
+  margin: 0.2rem 0;
+}
+
 @media (max-width: 860px) {
   .prototype-grid {
     grid-template-columns: 1fr;

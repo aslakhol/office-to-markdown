@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test:browser": "playwright test",
     "test": "./scripts/run-python-tests.sh",
     "quality": "pnpm lint && pnpm typecheck && pnpm test"
   },
@@ -20,6 +21,7 @@
     "uploadthing": "^7.7.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "^22.12.0",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
